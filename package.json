@@ -1,9 +1,14 @@
 {
-  "name": "quiniela-scraper",
+  "name": "puppeteer-quiniela",
   "version": "1.0.0",
   "type": "module",
+  "main": "api/quiniela.js",
+  "scripts": {
+    "start": "node api/quiniela.js"
+  },
   "dependencies": {
-    "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12"
+    "express": "^4.18.2",
+    "puppeteer": "^20.9.0"
   }
 }
+
