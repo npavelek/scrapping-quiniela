@@ -13,6 +13,10 @@ export default async function handler(req, res) {
     });
 
     const html = response.data;
+
+    // 👇 Este log muestra los primeros 500 caracteres del HTML
+    console.log("📄 HTML recibido:", html.slice(0, 500));
+
     const $ = cheerio.load(html);
 
     const secciones = ["CABEZA", "A LOS 5", "A LOS 10", "A LOS 20"];
@@ -38,9 +42,14 @@ export default async function handler(req, res) {
       });
     });
 
+    if (resultados.length === 0) {
+      console.warn("⚠️ No se encontraron resultados en el HTML.");
+    }
+
     res.status(200).json(resultados);
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error al hacer scraping:", err.message);
     res.status(500).json({ error: "Scraping failed" });
   }
 }
+
