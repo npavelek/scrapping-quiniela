@@ -1,55 +1,58 @@
-import axios from "axios";
-import * as cheerio from "cheerio";
+import express from "express";
+import puppeteer from "puppeteer";
 
-export default async function handler(req, res) {
+const app = express();
+
+app.get("/api/quiniela", async (req, res) => {
   try {
-    const url = "https://www.tujugada.com.ar/quiniela-salta-estadisticas.asp";
-
-    const response = await axios.get(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-      }
+    const browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
-    const html = response.data;
+    const page = await browser.newPage();
+    await page.goto("https://www.tujugada.com.ar/quiniela-salta-estadisticas.asp", {
+      waitUntil: "networkidle2"
+    });
 
-    // 👇 Este log muestra los primeros 500 caracteres del HTML
-    console.log("📄 HTML recibido:", html.slice(0, 500));
+    const data = await page.evaluate(() => {
+      const secciones = ["CABEZA", "A LOS 5", "A LOS 10", "A LOS 20"];
+      const resultados = [];
 
-    const $ = cheerio.load(html);
+      secciones.forEach((seccion) => {
+        const bTag = Array.from(document.querySelectorAll("b"))
+          .find((el) => el.textContent.trim() === seccion);
+        if (!bTag) return;
 
-    const secciones = ["CABEZA", "A LOS 5", "A LOS 10", "A LOS 20"];
-    const resultados = [];
+        const tabla = bTag.parentElement?.nextElementSibling;
+        if (!tabla || !tabla.querySelectorAll) return;
 
-    secciones.forEach((seccion) => {
-      const titulo = $(`b:contains(${seccion})`).first();
-      const tabla = titulo.nextAll("table[bgcolor='#0E7D2F']").first();
-
-      tabla.find("tr").each((_, row) => {
-        const tds = $(row).find("td");
-        if (tds.length >= 2) {
-          const numero = parseInt($(tds[0]).text().trim(), 10);
-          const veces = parseInt($(tds[1]).text().trim(), 10);
-          if (!isNaN(numero) && !isNaN(veces)) {
-            resultados.push({
-              seccion,
-              numero,
-              veces
-            });
+        const filas = tabla.querySelectorAll("tr");
+        filas.forEach((fila) => {
+          const celdas = fila.querySelectorAll("td");
+          if (celdas.length >= 2) {
+            const numero = parseInt(celdas[0].innerText.trim(), 10);
+            const veces = parseInt(celdas[1].innerText.trim(), 10);
+            if (!isNaN(numero) && !isNaN(veces)) {
+              resultados.push({ seccion, numero, veces });
+            }
           }
-        }
+        });
       });
+
+      return resultados;
     });
 
-    if (resultados.length === 0) {
-      console.warn("⚠️ No se encontraron resultados en el HTML.");
-    }
-
-    res.status(200).json(resultados);
-  } catch (err) {
-    console.error("❌ Error al hacer scraping:", err.message);
+    await browser.close();
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error en scraping:", error.message);
     res.status(500).json({ error: "Scraping failed" });
   }
-}
+});
+
+app.listen(3000, () => {
+  console.log("✅ API running on http://localhost:3000/api/quiniela");
+});
+
 
